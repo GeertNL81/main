@@ -1,0 +1,45 @@
+Current Status: The user, Geert, has successfully configured and deployed a fully functional, error-free NixOS server named homelab on bare metal. The system is managed by a robust, version-controlled Nix Flake. All services (n8n, Odoo with its PostgreSQL database, and Duplicati) are running in isolated containers using a NAT-less, shared networking model (privateNetwork = false) and are confirmed to be accessible.
+User's Goal: The user is focused on learning and implementing idiomatic NixOS solutions. They value understanding why a particular configuration is correct and appreciate clean, modular file structures.
+Core Architecture & Key Concepts (UPDATED)
+Management: The system is 100% managed by a Nix Flake located in /home/geert/nix/.
+Host OS: NixOS running on the unstable channel (25.05) on a bare-metal server.
+Containerization: Declarative NixOS Containers (systemd-nspawn) are used to isolate each service.
+Container Design Pattern:
+Application containers (n8n, odoo-app) use StateDirectory for persistence, managed internally by their systemd services.
+Database containers (odoo-db) use host bind mounts (/var/lib/postgresql-odoo) for their data, making backups and data management easier from the host.
+Networking: All containers use shared networking (privateNetwork = false), binding their ports directly to the host's network interfaces. This eliminates the need for NAT and provides direct, simplified access to services. The host firewall is enabled and correctly configured to allow traffic to the containerized services.
+Detailed Configuration Breakdown (UPDATED: Bare-Metal Golden Version)
+flake.nix (The Blueprint)
+Purpose: Defines project inputs (nixpkgs, nixpkgs-stable, etc.) and outputs (nixosConfigurations). It defines both the legacy vm host and the production homelab host.
+Location: /home/geert/nix/flake.nix
+hosts/common/default.nix (Shared Settings)
+Purpose: Core settings applied to all hosts.
+Key Config:
+Tailscale: services.tailscale.enable = true;, boot.kernel.sysctl = { "net.ipv4.ip_forward" = 1; };, and other common settings.
+Common Packages: pkgs.neovim, pkgs.git, pkgs.nano, pkgs.eza, pkgs.tmux, and other essential utilities are in environment.systemPackages.
+Includes general Nix settings and OpenSSH configuration.
+Location: /home/geert/nix/hosts/common/default.nix
+hosts/homelab/configuration.nix (Host-Specific Settings)
+Purpose: The central configuration for the homelab server.
+Key Config:
+Imports: Imports hardware-configuration.nix, containers.nix, odoo-stack.nix, and ../common/default.nix.
+Networking: Defines the host's static IP (192.168.178.2) using the modern interfaces.enp5s0.ipv4.addresses syntax. The networking.nat block is removed.
+Firewall: networking.firewall.enable = true;. The primary LAN interface (enp5s0) is added to trustedInterfaces to allow traffic to the containerized services. allowedTCPPorts opens ports 5678, 8069, 8200, 5432.
+Tailscale Funnel: systemd.services.tailscale-funnel is defined to expose the n8n service.
+Duplicati: A custom systemd.services.duplicati-server is defined with StateDirectory, WorkingDirectory, and an explicit ExecStart to ensure it runs correctly.
+Location: /home/geert/nix/hosts/homelab/configuration.nix
+hosts/homelab/containers.nix (n8n Container)
+Purpose: Defines the n8n-server container.
+Key Config:
+privateNetwork = false; is set for shared networking.
+A bindMount for /etc/resolv.conf is included to provide DNS resolution to the container.
+Location: /home/geert/nix/hosts/homelab/containers.nix
+hosts/homelab/odoo-stack.nix (Odoo Stack)
+Purpose: Defines the odoo-db and odoo-app containers.
+Key Config:
+Both containers are configured with privateNetwork = false;.
+The PostgreSQL container (odoo-db) is configured to listen only on 127.0.0.1 for security.
+The Odoo application container (odoo-app) connects to the database via db_host = "127.0.0.1";.
+Location: /home/geert/nix/hosts/homelab/odoo-stack.nix
+Tailscale ACL: The Tailscale Admin Console ACL is configured to explicitly allow all traffic ("src": ["*"]) to homelab on port 5678 ("dst": ["100.120.134.117:5678"]), with Funnel enabled via nodeAttrs. Tags are not used.
+Next Steps for Assistant: The system is fully deployed and stable. Future tasks could involve setting up a reverse proxy (like Nginx), configuring TLS certificates, or exploring other services.
