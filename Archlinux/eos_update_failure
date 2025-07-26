@@ -1,0 +1,3 @@
+ pacman -Rdd linux-firmware
+
+ pacman -Syu linux-firmware

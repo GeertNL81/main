@@ -1,0 +1,61 @@
+Homelab.local Server Overview: "n8nserver" (Final Version)
+1. Core Philosophy & Design Principles
+This Homelab is built upon a declarative and reproducible foundation using NixOS. The primary goal is to provide a robust, self-hosted platform for various applications, emphasizing three core pillars:
+Containerization (Podman): The standard for all application deployment.
+Secure Networking (Tailscale): Used for zero-trust remote access and simplified, secure service exposure.
+Secure Secret Management: All secrets (passwords, API keys) are externalized from version-controlled configuration files and managed in a local .env file.
+The entire system state is defined in configuration files (configuration.nix, docker-compose.yml), allowing for easy version control, rollbacks, and reproduction of the environment.
+2. Server Identity & Base System
+Hostname: n8nserver
+Operating System: NixOS (Version 24.05). System configuration is managed entirely through /etc/nixos/configuration.nix.
+Bootloader: GRUB is installed on /dev/sdb.
+Time Synchronization: chrony is enabled and configured with Dutch NTP pools.
+3. Networking Configuration
+Primary Interface: enp5s0 (Static IP: 192.168.178.2/24, Gateway: 192.168.178.1)
+Network Manager: systemd-networkd.
+IP Forwarding: Enabled (net.ipv4.ip_forward = 1).
+Firewall: Enabled, allowing traffic on trusted interfaces and specific ports for services like NPM (80/8443/81) and n8n (5678).
+4. Remote Access & VPN (Tailscale)
+Tailscale Client: Enabled as a system service on n8nserver.
+Access: Secure remote access is managed via Tailscale.
+5. Containerization & Service Management
+Container Engine: Podman with dockerCompat enabled.
+Compose: podman-compose manages the application stack defined in /home/geert/n8n/docker-compose.yml.
+Podman Socket: The root Podman socket at /var/run/podman/podman.sock is used by containers that need to interact with the container engine.
+6. Key Applications & Services (via Podman Compose)
+The application stack is managed by /home/geert/n8n/docker-compose.yml. All secrets are stored in /home/geert/n8n/.env and injected into containers at runtime.
+n8n (Workflow Automation):
+Secret: N8N_ENCRYPTION_KEY is sourced from the .env file.
+Note: The n8n data volume was recently reset to apply the new key.
+mongo (Database):
+Secret: MONGO_ROOT_PASSWORD is sourced from the .env file.
+Note: The database volume was recently reset to apply the new password.
+mongo-express (DB Admin):
+Secret: ME_CONFIG_MONGODB_AUTH_PASSWORD is sourced from the .env file.
+Nginx Proxy Manager (NPM):
+Role: Acts as the reverse proxy for exposing services.
+Access: The admin UI is on port 81, with HTTP/HTTPS on 80/8443.
+Ollama (AI Model Server):
+Role: Serves large language models for inference.
+Networking: Runs in network_mode: "host" for maximum reliability and performance. This makes it directly accessible on the host at localhost:11434.
+Data: Models are persisted in the ollama_data named volume.
+Resource Management: Resource limits (e.g., memory) can be set via a deploy block in the compose file to control consumption.
+Open WebUI (AI Chat Interface):
+Role: Provides a user-friendly web interface for chatting with models served by Ollama.
+Networking: Also runs in network_mode: "host" to ensure a stable connection to the Ollama service.
+Connection: The OLLAMA_BASE_URL is set to http://127.0.0.1:11434 to connect to the host-networked Ollama instance.
+Access: The UI is available directly on the host at http://n8nserver:8080.
+7. User, Administration, & Version Control
+Main User: geert
+Git & Version Control: The configuration is version-controlled in GitHub from /home/geert/n8n/.
+.gitignore File: A comprehensive .gitignore file is in place to prevent secrets (.env) and runtime state/data directories from being committed.
+8. Critical Configuration Files & Directories
+/etc/nixos/configuration.nix: The master NixOS system configuration.
+/home/geert/n8n/docker-compose.yml: The compose file defining all containerized services.
+/home/geert/n8n/.env: THE SECRET FILE. This file is private, not version-controlled, and contains all passwords and keys.
+9. Quick Reference for a New Assistant
+Main Project Directory: /home/geert/n8n/
+Deploy/Restart Stack: cd /home/geert/n8n/ && sudo podman-compose up -d
+Force Recreate (for env changes): sudo podman-compose up -d --force-recreate
+Check Service Logs: sudo podman logs <container_name> (e.g., sudo podman logs open-webui)
+Podman Status: sudo podman ps -a
