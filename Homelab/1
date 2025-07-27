@@ -1,0 +1,77 @@
+{ config, lib, pkgs, ... }:
+
+{
+  ######################################################################
+  # PostgreSQL container for Odoo – 24.11 syntax
+  ######################################################################
+  containers.odoo-db = {
+    autoStart      = true;
+    ephemeral      = false;
+    privateNetwork = false;       # host networking (no NAT)
+
+    # Host-side data volume (easy backups)
+    bindMounts.postgresql-data = {
+      hostPath   = "/var/lib/postgresql-odoo";
+      isReadOnly = false;
+    };
+
+    config = { config, lib, ... }:
+    {
+      networking.hostName = "odoo-db";
+
+      services.postgresql = {
+        enable        = true;
+        package       = pkgs.postgresql_15;
+
+        # 24.11 still uses the legacy option name
+        settings.listen_addresses = "127.0.0.1";
+
+        # Role and DB created at *first* container start
+        initialScript =
+          pkgs.writeText "postgres-init.sql" ''
+            CREATE ROLE odoo WITH LOGIN PASSWORD 'odoo';
+            CREATE DATABASE odoo OWNER odoo;
+          '';
+
+        # 24.11 option name (NO "permissions", still "ensurePermissions")
+        ensureUsers = [{
+          name                = "odoo";
+          ensurePermissions   = { "DATABASE odoo" = "ALL PRIVILEGES"; };
+        }];
+      };
+    };
+  };
+
+  ######################################################################
+  # Odoo application container – 24.11 module (uses `settings`)
+  ######################################################################
+  containers.odoo-app = {
+    autoStart      = true;
+    ephemeral      = false;
+    privateNetwork = false;       # bind port 8069 directly to host
+
+    config = { config, lib, ... }:
+    {
+      networking.hostName = "odoo-app";
+
+      services.odoo = {
+        enable  = true;
+        package = pkgs.odoo;
+
+        #############################################################
+        # 24.11 canonical way to pass DB parameters
+        #############################################################
+        settings = {
+          db_host     = "127.0.0.1";          # → odoo-db container (shared network)
+          db_port     = 5432;
+          db_name     = "odoo";
+          db_user     = "odoo";
+          db_password = "odoo";
+        };
+      };
+
+      # Optional: let Odoo talk back to itself via loop-back (no reverse-path check)
+      networking.firewall.checkReversePath = lib.mkForce false;
+    };
+  };
+}

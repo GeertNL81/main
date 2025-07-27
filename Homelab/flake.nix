@@ -1,49 +1,43 @@
-# /home/geert/nix/flake.nix
-#
-# This is the main entry point for your entire NixOS configuration.
-
+########################################################################
+# flake.nix – homelab NixOS 24.11 (x86_64-linux) – n8n + Odoo 17 stack
+########################################################################
 {
-  description = "Geert's NixOS Configurations";
+  description = "Single-host NixOS server running n8n and Odoo";
 
-  # --- INPUTS ---
-  # These are the external dependencies of your configuration.
   inputs = {
-    # The NixOS package collection. We track the 'nixos-unstable' branch.
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs-stable.url = "github:NixOS/nixpkgs/nixos-24.05";
-    nixpkgs-unstable.url = "github:NixOS/nixpkgs/nixos-unstable";
-    nixpkgs-odoo.url = "github:NixOS/nixpkgs/nixos-unstable";
+    # Long-term-support branch with guaranteed binary cache
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.11";
+  };
 
-    # You could add other inputs here later, like home-manager.
-    # home-manager.url = "github:nix-community/home-manager";
-    # home-manager.inputs.nixpkgs.follows = "nixpkgs";
-   };
+  outputs = { self, nixpkgs }@inputs:
+  let
+    system = "x86_64-linux";
+  in
+  {
+    nixosConfigurations.homelab = nixpkgs.lib.nixosSystem {
+      inherit system;
 
-  # --- OUTPUTS ---
-  # These are the things your flake can build, like your NixOS systems.
-  outputs = { self, nixpkgs, ... }@inputs: {
+      modules = [
+        # Base hardware identification (generated on-install)
+        ./hosts/homelab/hardware-configuration.nix
 
-    # This is where we define the NixOS systems that can be built.
-    nixosConfigurations = {
+        # Declared services & containers (Odoo + PostgreSQL)
+        ./hosts/homelab/odoo-stack.nix
 
-      # The one, true definition for your bare-metal server.
-      homelab = nixpkgs.lib.nixosSystem {
-        system = "x86_64-linux";
-        specialArgs = { inherit inputs; };
-        modules = [
-          ./hosts/homelab/configuration.nix
-        ];
-      };
+        # Rest of host-level configuration
+        ./hosts/homelab/configuration.nix
+      ];
 
-      # If you want to keep a VM config, it MUST have a different name, e.g.:
-      # vm = nixpkgs.lib.nixosSystem {
-      #   system = "x86_64-linux";
-      #   specialArgs = { inherit inputs; };
-      #   modules = [
-      #     ./hosts/vm/configuration.nix
-      #   ];
-      # };
-
+      # Our flake already contains the channel, no extra logic here
     };
+
+    # Convenience: build the toplevel without needing to activate
+    packages.${system} = {
+      homelab = self.nixosConfigurations.homelab.config.system.build.toplevel;
+      default = self.packages.${system}.homelab;
+    };
+
+    # Auto-formatter hook for CI / editor integration
+    formatter.${system} = nixpkgs.legacyPackages.${system}.nixfmt-rfc-style;
   };
 }

@@ -4,17 +4,22 @@
 
 { config, pkgs, lib, ... }:
 
+########################################################################
+# 1. Nix Flakes & Global Settings
+########################################################################
 {
-  # --- Nix Flakes and Command Settings ---
   nix = {
     optimise.automatic = false;
+
     settings = {
       experimental-features = [ "nix-command" "flakes" ];
-      trusted-users = [ "root" "@wheel" ];
+      trusted-users         = [ "root" "@wheel" ];
     };
   };
 
-  # --- Common System Packages ---
+  ########################################################################
+  # 2. Common System Packages
+  ########################################################################
   environment.systemPackages = with pkgs; [
     neovim
     vim
@@ -28,22 +33,30 @@
     eza
   ];
 
-  # --- Services ---
+  ########################################################################
+  # 3. OpenSSH
+  ########################################################################
   services.openssh = {
     enable = true;
     settings = {
       PasswordAuthentication = true;
-      PermitRootLogin = "no";
+      PermitRootLogin        = "no";
     };
   };
 
-  # --- Tailscale Common Configuration (for all hosts) ---
+  ########################################################################
+  # 4. Tailscale fire-and-forget config
+  ########################################################################
   services.tailscale.enable = true;
-  boot.kernel.sysctl = { "net.ipv4.ip_forward" = 1; };
 
+  boot.kernel.sysctl = {
+    "net.ipv4.ip_forward" = 1;
+  };
+
+  ########################################################################
+  # 5. Firewall & Tailscale interface
+  ########################################################################
   networking.firewall.trustedInterfaces = [ "tailscale0" ];
 
-  users.users.geert = {
-    extraGroups = [ "tailscale" ];
-  };
+  users.users.geert.extraGroups = [ "tailscale" ];
 }

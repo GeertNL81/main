@@ -2,7 +2,7 @@
 { config, pkgs, lib, ... }:
 {
   containers."n8n-server" = {
-    privateNetwork = true; # <-- REVERTED
+    privateNetwork = true; 
     hostAddress    = "10.233.1.1";
     localAddress   = "10.233.1.3";
     config = { pkgs, ... }: {
