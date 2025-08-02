@@ -1,3 +1,5 @@
+# /home/geert/nix/hosts/homelab/odoo-stack.nix
+
 { config, pkgs, lib, ... }:
 
 let
@@ -9,23 +11,15 @@ let
   '';
 in
 {
-  #############################################################################
-  # PostgreSQL service  (socket-only, ident for odoo)
-  #############################################################################
   services.postgresql = {
     enable     = true;
     package    = pkgs.postgresql_16;
     authentication = lib.mkAfter ''
       local all odoo  ident
     '';
-
     ensureUsers = [ { name = "odoo"; } ];
     initialScript = pgInitSql;
   };
-
-  #############################################################################
-  # User / group
-  #############################################################################
   users.users.odoo = {
     isSystemUser = true;
     group        = "odoo";
@@ -33,16 +27,11 @@ in
     createHome   = true;
   };
   users.groups.odoo = { };
-
-  #############################################################################
-  # Odoo main service
-  #############################################################################
   systemd.services.odoo = {
     description = "Odoo ERP";
     wantedBy    = [ "multi-user.target" ];
     wants       = [ "postgresql.service" ];
     after       = [ "postgresql.service" "odoo-setupDb.service" ];
-
     serviceConfig = {
       Type             = "simple";
       User             = "odoo";
@@ -51,10 +40,6 @@ in
       Restart          = "on-failure";
     };
   };
-
-  #############################################################################
-  # Configuration file
-  #############################################################################
   environment.etc."odoo/odoo.conf".text = ''
     [options]
     db_host      = /run/postgresql
@@ -67,36 +52,23 @@ in
     addons_path  = ${odoo-pkg}/lib/python3.12/site-packages/odoo/addons
     data_dir     = /var/lib/odoo/.local/share/Odoo
   '';
-
-  #############################################################################
-  # Yes, bootstrap the database EVERY time (only first time does anything).
-  # Check pg_tables instead of pg_class, and wipe the old Re-ExecStart pattern.
-  #############################################################################
   systemd.services.odoo-setupDb = {
     description = "Odoo initial DB bootstrap";
     wantedBy    = [ "multi-user.target" ];
     after       = [ "postgresql.service" ];
     before      = [ "odoo.service" ];
-
     serviceConfig = {
       Type            = "oneshot";
       RemainAfterExit = true;
       User            = "odoo";
     };
-
     path = with pkgs; [ postgresql odoo-pkg ];
-
     script = ''
       set -euo pipefail
-
       echo "Waiting for PostgreSQL socket ..."
       until pg_isready -q; do sleep 1; done
-
-      # Safer test: look in pg_tables
       tablesExist=$(psql -d odoo -tA -c \
         "SELECT to_regclass('public.ir_module_module') IS NULL::int")
-
-      # 1 == null → tables not installed
       if [[ "$tablesExist" == "1" ]]; then
         echo "Installing base module..."
         odoo -c /etc/odoo/odoo.conf \
@@ -113,6 +85,12 @@ in
   #############################################################################
   # Misc helpers
   #############################################################################
-  environment.systemPackages = with pkgs; [ wkhtmltopdf postgresql xorg.libX11 ];
+  # Packages are listed explicitly to ensure they merge correctly.
+  environment.systemPackages = [
+    pkgs.wkhtmltopdf
+    pkgs.postgresql
+    pkgs.xorg.libX11
+  ];
+
   networking.firewall.allowedTCPPorts = [ 8069 ];
 }

@@ -1,6 +1,3 @@
-########################################################################
-# hosts/homelab/configuration.nix – production-ready, single-host setup
-########################################################################
 { config, pkgs, lib, ... }:
 {
   ######################################################################
@@ -38,7 +35,6 @@
   boot.loader.grub = {
     enable  = true;
     device  = "/dev/disk/by-id/ata-SanDisk_SD9SN8W256G1002_184233800457";
-    # version 2;  ← removed because the option was deprecated
   };
 
   ######################################################################
@@ -46,6 +42,7 @@
   ######################################################################
   services.tailscale.enable = true;
   environment.systemPackages = with pkgs; [ tailscale ];
+  services.tailscale.useRoutingFeatures = "client";
 
   ######################################################################
   # 5) Local user accounts
@@ -58,7 +55,6 @@
   };
   users.groups.geert = {};
 
-  # NEW: runtime account for duplicati-server.service
   users.users.duplicati = {
     isSystemUser = true;
     description  = "Duplicati runtime user";
@@ -78,7 +74,7 @@
       Type            = "simple";
       User            = "duplicati";
       Group           = "duplicati";
-      WorkingDirectory= "/tmp";
+      WorkingDirectory = "/tmp";
       StateDirectory  = "duplicati";
       ExecStart       = "${pkgs.duplicati}/bin/duplicati-server \
                          --webservice-port=8200 \
