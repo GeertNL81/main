@@ -2,7 +2,7 @@
 # flake.nix – homelab NixOS 24.11 (x86_64-linux) – n8n + Odoo 17 stack
 ########################################################################
 {
-  description = "Single-host NixOS server running n8n and Odoo";
+  description = "Single-host NixOS server ";
 
   inputs = {
     # Long-term-support branch with guaranteed binary cache
@@ -21,11 +21,9 @@
         # Base hardware identification (generated on-install)
         ./hosts/homelab/hardware-configuration.nix
 
-        # Declared services & containers (Odoo + PostgreSQL)
-        ./hosts/homelab/odoo-stack.nix
-
         # Rest of host-level configuration
-        ./hosts/homelab/configuration.nix
+        ./hosts/homelab/configuration.nix 
+
       ];
 
       # Our flake already contains the channel, no extra logic here

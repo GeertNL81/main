@@ -3,8 +3,6 @@
 { config, pkgs, lib, ... }:
 
 {
-  # ... (Sections 1-5 remain the same) ...
-
   ########################################################################
   # 1. Nix Flakes & Global Settings
   ########################################################################
@@ -35,6 +33,7 @@
     pkgs.duf
     pkgs.gping
     pkgs.zoxide
+    # Removed pkgs.direnv from here as per request
   ];
 
   ########################################################################
@@ -49,13 +48,16 @@
     };
   };
 
-  # Adding user-specific packages here
+  # Adding user-specific packages here AND FIXING USER DEFINITION
   users.users.geert = {
-    extraGroups = [ "wheel" "tailscale" ]; # Added 'wheel' for sudo access if needed
-    packages = with pkgs; [
-      direnv # Installs direnv for the 'geert' user
+    isNormalUser = true; # <-- FIX: Set this to define the user type
+    group        = "geert"; # <-- FIX: Set the primary group for the user
+    extraGroups = [ "wheel" "tailscale" ];
+    packages = [
+      # Removed direnv from user-specific packages as per request
     ];
   };
+  users.groups.geert = {}; # <-- FIX: Explicitly define the 'geert' group
 
   ########################################################################
   # 4. Tailscale fire-and-forget config
@@ -84,10 +86,9 @@
     completion.enable = true;
   };
 
-  # --- THIS IS THE ADDITION for direnv ---
-  # Enable direnv to automatically load/unload environments
-  programs.direnv = {
-    enable = true;
-    nix-direnv.enable = true; # Crucial for integration with Nix
-  };
+  # --- Removed direnv enablement entirely as per request ---
+  # programs.direnv = {
+  #   enable = true;
+  #   nix-direnv.enable = true;
+  # };
 }
